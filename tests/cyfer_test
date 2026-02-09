@@ -1,0 +1,245 @@
+#!/bin/bash
+set -euo pipefail
+
+# Jump to the script's own directory first
+cd "$(dirname "$0")" || exit 1
+
+# === Configuration ===
+ELF="hello_cyfer"
+CYFER="../bin/cyfer"
+TEMP="./cyfer_test_$(date +%Y-%m-%d_%H:%M:%S)"
+
+c_reset=$'\e[0m'
+c_red=$'\e[31m'
+c_green=$'\e[32m'
+c_yellow=$'\e[33m'
+c_blue=$'\e[34m'
+c_bold=$'\e[1m'
+
+c_bold_red="${c_bold}${c_red}"
+c_bold_green="${c_bold}${c_green}"
+c_bold_yellow="${c_bold}${c_yellow}"
+c_bold_blue="${c_bold}${c_blue}"
+
+info()  { printf '%s%s%s\n' "$c_blue"  "$*" "$c_reset"; }
+ok()    { printf '%s%s%s\n' "$c_green" "$*" "$c_reset"; }
+warn()  { printf '%s%s%s\n' "$c_yellow""$*" "$c_reset" >&2; }
+err()   { printf '%s%s%s\n' "$c_red"   "$*" "$c_reset" >&2; }
+
+info_bold()  { printf '%s%s%s\n' "$c_bold_blue"  "$*" "$c_reset"; }
+ok_bold()    { printf '%s%s%s\n' "$c_bold_green" "$*" "$c_reset"; }
+warn_bold()  { printf '%s%s%s\n' "$c_bold_yellow""$*" "$c_reset" >&2; }
+err_bold()   { printf '%s%s%s\n' "$c_bold_red"   "$*" "$c_reset" >&2; }
+
+echo ""
+info_bold "=== Memory Leak Test ==="
+info "-> $CYFER --converters && $CYFER --alias"
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $CYFER --converters && $CYFER --alias
+info "-> cat $ELF | $CYFER bytes2ascii | $CYFER ascii2bytes | $CYFER bytes2ascii"
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes cat $ELF | $CYFER bytes2ascii | $CYFER ascii2bytes | $CYFER bytes2ascii
+echo ""
+info "-> cat $ELF | $CYFER bytes2base64 | $CYFER base642bytes | $CYFER bytes2ascii"
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes cat $ELF | $CYFER bytes2base64 | $CYFER base642bytes | $CYFER bytes2ascii
+
+echo ""
+info_bold "=== Error Handling ==="
+set +e  # disable exit-on-error
+
+info "Test: unknown commands"
+warn "-> cyfer fuck"
+$CYFER fuck
+warn "-> cyfer dumb ass"
+$CYFER dumb ass
+warn "-> cyfer bytes"
+$CYFER bytes
+warn "-> cyfer hex"
+$CYFER hex
+warn "-> cyfer lmao"
+$CYFER lmao
+warn "-> cyfer gibberish923743@_-+=[]''"
+$CYFER gibberish923743@_-+=[]''
+
+echo ""
+info "Test: defining delimiters without value"
+warn "-> cyfer h2a "65 66 67" --delimiters"
+$CYFER h2a "65 66 67" --delimiters 
+echo ""
+info "Test: not support interactive mode"
+warn "-> cyfer bytes2hex"
+$CYFER bytes2hex
+warn "-> cyfer ascii2bytes"
+$CYFER ascii2bytes
+
+set -e  # re-enable it
+
+echo ""
+
+# === Execution & Timing ===
+time (
+    info_bold "=== Starting Unified Hub Tests & Timing ==="
+
+    # Baseline Golden Standard
+    OUT_ASCII=$(cat "$ELF" | $CYFER bytes2ascii)
+
+    info "=== Tests For Bytes -> X ==="
+    # 1. Capture the outputs into variables
+    # test bytes2ascii
+    # Golden Standar - OUT_ASCII
+    # test bytes2decimal
+    OUT_DEC=$(cat $ELF | $CYFER bytes2decimal | $CYFER decimal2ascii)
+    # test bytes2bits
+    OUT_BITS=$(cat $ELF | $CYFER bytes2bits | $CYFER bits2ascii)
+    # test bytes2hex
+    OUT_HEX=$(cat $ELF | $CYFER bytes2hex | $CYFER hex2ascii)
+    # test bytes2base64
+    OUT_BASE=$(cat $ELF | $CYFER bytes2base64 | $CYFER base642ascii)
+
+    # 2. Compare them against the ASCII path
+    info "--- Consistency Check ---"
+    [[ "$OUT_DEC" == "$OUT_ASCII" ]] && ok "✔ Decimal matches ASCII" || err "✘ Decimal differs"
+    [[ "$OUT_BITS" == "$OUT_ASCII" ]] && ok "✔ Bits matches ASCII" || err "✘ Bits differs"
+    [[ "$OUT_HEX" == "$OUT_ASCII" ]] && ok "✔ Hex matches ASCII" || err "✘ Hex differs"
+    [[ "$OUT_BASE" == "$OUT_ASCII" ]] && ok "✔ Base64 matches ASCII" || err "✘ Base64 differs"
+
+
+    echo ""
+    info "=== Tests For ASCII -> X ==="
+    # 1. Capture the outputs into variables
+    # test ascii2decimal
+    OUT_DEC=$(cat $ELF | $CYFER bytes2ascii | $CYFER ascii2decimal | $CYFER decimal2ascii)
+    # test ascii2bits
+    OUT_BITS=$(cat $ELF | $CYFER bytes2ascii | $CYFER ascii2bits | $CYFER bits2ascii)
+    # test ascii2hex
+    OUT_HEX=$(cat $ELF | $CYFER bytes2ascii | $CYFER ascii2hex | $CYFER hex2ascii)
+    # test ascii2base64
+    OUT_BASE=$(cat $ELF | $CYFER bytes2ascii | $CYFER ascii2base64 | $CYFER base642ascii)
+
+    echo "--- Consistency Check ---"
+    [[ "$OUT_DEC" == "$OUT_ASCII" ]] && ok "✔ Decimal matches ASCII" || err "✘ Decimal differs"
+    [[ "$OUT_BITS" == "$OUT_ASCII" ]] && ok "✔ Bits matches ASCII" || err "✘ Bits differs"
+    [[ "$OUT_HEX" == "$OUT_ASCII" ]] && ok "✔ Hex matches ASCII" || err "✘ Hex differs"
+    [[ "$OUT_BASE" == "$OUT_ASCII" ]] && ok "✔ Base64 matches ASCII" || err "✘ Base64 differs"
+
+
+    echo ""
+    info "=== Tests For Decimal -> X ==="
+    # test decimal2ascii
+    OUT_DEC_ASCII=$(cat $ELF | $CYFER bytes2decimal | $CYFER decimal2ascii)
+    # test decimal2bits
+    OUT_BITS=$(cat $ELF | $CYFER bytes2decimal | $CYFER decimal2bits | $CYFER bits2ascii)
+    # test decimal2hex
+    OUT_HEX=$(cat $ELF | $CYFER bytes2decimal | $CYFER decimal2hex | $CYFER hex2ascii)
+    # test decimal2base64
+    OUT_BASE=$(cat $ELF | $CYFER bytes2decimal | $CYFER decimal2base64 | $CYFER base642ascii)
+
+    info "--- Consistency Check ---"
+    [[ "$OUT_DEC_ASCII" == "$OUT_ASCII" ]] && ok "✔ ASCII matches ASCII" || err "✘ ASCII differs"
+    [[ "$OUT_BITS" == "$OUT_ASCII" ]] && ok "✔ Bits matches ASCII" || err "✘ Bits differs"
+    [[ "$OUT_HEX" == "$OUT_ASCII" ]] && ok "✔ Hex matches ASCII" || err "✘ Hex differs"
+    [[ "$OUT_BASE" == "$OUT_ASCII" ]] && ok "✔ Base64 matches ASCII" || err "✘ Base64 differs"
+
+
+    echo ""
+    info "=== Tests For Bits -> X ==="
+    # test bits2ascii
+    OUT_BITS_ASCII=$(cat $ELF | $CYFER bytes2bits | $CYFER bits2ascii)
+    # test bits2decimal
+    OUT_DEC=$(cat $ELF | $CYFER bytes2bits | $CYFER bits2decimal | $CYFER decimal2ascii)
+    # test bits2hex
+    OUT_HEX=$(cat $ELF | $CYFER bytes2bits | $CYFER bits2hex | $CYFER hex2ascii)
+    # test bits2base64
+    OUT_BASE=$(cat $ELF | $CYFER bytes2bits | $CYFER bits2base64 | $CYFER base642ascii)
+
+    info "--- Consistency Check ---"
+    [[ "$OUT_BITS_ASCII" == "$OUT_ASCII" ]] && ok "✔ ASCII matches ASCII" || err "✘ Decimal differs"
+    [[ "$OUT_DEC" == "$OUT_ASCII" ]] && ok "✔ Decimal matches ASCII" || err "✘ Decimal differs"
+    [[ "$OUT_HEX" == "$OUT_ASCII" ]] && ok "✔ Hex matches ASCII" || err "✘ Hex differs"
+    [[ "$OUT_BASE" == "$OUT_ASCII" ]] && ok "✔ Base64 matches ASCII" || err "✘ Base64 differs"
+
+
+    echo ""
+    info "=== Tests For Hex -> X ==="
+    # test hex2ascii
+    OUT_HEX_ASCII=$(cat $ELF | $CYFER bytes2hex | $CYFER hex2ascii)
+    # test hex2decimal
+    OUT_DEC=$(cat $ELF | $CYFER bytes2hex | $CYFER hex2decimal | $CYFER decimal2ascii)
+    # test hex2bits
+    OUT_BITS=$(cat $ELF | $CYFER bytes2hex | $CYFER hex2bits | $CYFER bits2ascii)
+    # test hex2base64
+    OUT_HEX=$(cat $ELF | $CYFER bytes2hex | $CYFER hex2base64 | $CYFER base642ascii)
+
+    info "--- Consistency Check ---"
+    [[ "$OUT_HEX_ASCII" == "$OUT_ASCII" ]] && ok "✔ ASCII matches ASCII" || err "✘ ASCII differs"
+    [[ "$OUT_DEC" == "$OUT_ASCII" ]] && ok "✔ Decimal matches ASCII" || err "✘ Decimal differs"
+    [[ "$OUT_BITS" == "$OUT_ASCII" ]] && ok "✔ Bits matches ASCII" || err "✘ Bits differs"
+    [[ "$OUT_HEX" == "$OUT_ASCII" ]] && ok "✔ Hex matches ASCII" || err "✘ Hex differs"
+
+    echo ""
+    info "=== Tests For Base64 -> X ==="
+    # test base642ascii
+    OUT_BASE_ASCII=$(cat $ELF | $CYFER bytes2base64 | $CYFER base642ascii)
+    # test base642decimal
+    OUT_DEC=$(cat $ELF | $CYFER bytes2base64 | $CYFER base642decimal | $CYFER decimal2ascii)
+    # test base642bits
+    OUT_BITS=$(cat $ELF | $CYFER bytes2base64 | $CYFER base642bits | $CYFER bits2ascii)
+    # test base642hex
+    OUT_HEX=$(cat $ELF | $CYFER bytes2base64 | $CYFER base642hex | $CYFER hex2ascii)
+
+    info "--- Consistency Check ---"
+    [[ "$OUT_BASE_ASCII" == "$OUT_ASCII" ]] && ok "✔ ASCII matches ASCII" || err "✘ ASCII differs"
+    [[ "$OUT_DEC" == "$OUT_ASCII" ]] && ok "✔ Decimal matches ASCII" || err "✘ Decimal differs"
+    [[ "$OUT_BITS" == "$OUT_ASCII" ]] && ok "✔ Bits matches ASCII" || err "✘ Bits differs"
+    [[ "$OUT_HEX" == "$OUT_ASCII" ]] && ok "✔ Hex matches ASCII" || err "✘ Hex differs"
+
+    echo ""
+    info_bold "=== Round-Trip Tests (X → Bytes → ASCII) ==="
+    info "Tests binary output via stdout redirection"
+
+    # Test ascii round-trip
+    OUT_ASCII_RT=$(cat $ELF | $CYFER bytes2ascii | $CYFER ascii2bytes | $CYFER bytes2ascii)
+    # Test decimal round-trip  
+    OUT_DEC_RT=$(cat $ELF | $CYFER bytes2decimal | $CYFER decimal2bytes | $CYFER bytes2ascii)
+    # Test bits round-trip
+    OUT_BITS_RT=$(cat $ELF | $CYFER bytes2bits | $CYFER bits2bytes | $CYFER bytes2ascii)
+    # Test hex round-trip
+    OUT_HEX_RT=$(cat $ELF | $CYFER bytes2hex | $CYFER hex2bytes | $CYFER bytes2ascii)
+    # Test base64 round-trip
+    OUT_BASE_RT=$(cat $ELF | $CYFER bytes2base64 | $CYFER base642bytes | $CYFER bytes2ascii)
+
+    info "--- Round-Trip Consistency Check ---"
+    [[ "$OUT_ASCII_RT" == "$OUT_ASCII" ]] && ok "✔ ASCII round-trip preserved" || err "✘ ASCII round-trip failed"
+    [[ "$OUT_DEC_RT" == "$OUT_ASCII" ]] && ok "✔ Decimal round-trip preserved" || err "✘ Decimal round-trip failed"
+    [[ "$OUT_BITS_RT" == "$OUT_ASCII" ]] && ok "✔ Bits round-trip preserved" || err "✘ Bits round-trip failed"
+    [[ "$OUT_HEX_RT" == "$OUT_ASCII" ]] && ok "✔ Hex round-trip preserved" || err "✘ Hex round-trip failed"
+    [[ "$OUT_BASE_RT" == "$OUT_ASCII" ]] && ok "✔ Base64 round-trip preserved" || err "✘ Base64 round-trip failed"
+
+    echo ""
+    info_bold "=== File I/O Tests ==="
+
+    # Test writing to file and reading back
+    # test ascii2bytes
+    cat $ELF | $CYFER bytes2ascii | $CYFER ascii2bytes > "${TEMP}_ascii.bin"
+    OUT_ASCII_FILE=$(cat "${TEMP}_ascii.bin" | $CYFER bytes2ascii)
+    # test decimal2bytes
+    cat $ELF | $CYFER bytes2decimal | $CYFER decimal2bytes > "${TEMP}_dec.bin"
+    OUT_DEC_FILE=$(cat "${TEMP}_dec.bin" | $CYFER bytes2ascii)
+    # test bits2bytes
+    cat $ELF | $CYFER bytes2bits | $CYFER bits2bytes > "${TEMP}_bits.bin"
+    OUT_BITS_FILE=$(cat "${TEMP}_bits.bin" | $CYFER bytes2ascii)
+    # test hex2bytes
+    cat $ELF | $CYFER bytes2hex | $CYFER hex2bytes > "${TEMP}_hex.bin"
+    OUT_HEX_FILE=$(cat "${TEMP}_hex.bin" | $CYFER bytes2ascii)
+    # test base642bytes
+    cat $ELF | $CYFER bytes2base64 | $CYFER base642bytes > "${TEMP}_base.bin"
+    OUT_BASE_FILE=$(cat "${TEMP}_base.bin" | $CYFER bytes2ascii)
+
+    info "--- File I/O Consistency Check ---"
+    [[ "$OUT_ASCII_FILE" == "$OUT_ASCII" ]] && ok "✔ ASCII File I/O works" || err "✘ ASCII File I/O broken"
+    [[ "$OUT_DEC_FILE" == "$OUT_ASCII" ]] && ok "✔ Decimal File I/O works" || err "✘ Decimal File I/O broken"
+    [[ "$OUT_BITS_FILE" == "$OUT_ASCII" ]] && ok "✔ Bits File I/O works" || err "✘ Bits File I/O broken"
+    [[ "$OUT_HEX_FILE" == "$OUT_ASCII" ]] && ok "✔ Hex File I/O works" || err "✘ Hex File I/O broken"
+    [[ "$OUT_BASE_FILE" == "$OUT_ASCII" ]] && ok "✔ Base64 File I/O works" || err "✘ Base64 File I/O broken"
+
+    # Cleanup
+    rm -f "${TEMP}_"*.bin
+)

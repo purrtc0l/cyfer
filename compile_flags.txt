@@ -1,0 +1,4 @@
+-Wall
+-Wextra
+-std=c17
+-DVERSION="0.6.0"
