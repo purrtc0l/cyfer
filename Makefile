@@ -1,4 +1,4 @@
-VERSION = 0.6.0
+VERSION = 0.6.1
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c17 -DVERSION=\"$(VERSION)\"
 
@@ -52,5 +52,5 @@ clean:
 
 tag:
 	git tag -a v$(VERSION) -m "Release v$(VERSION)"
-	git push pub v$(VERSION)
+	git push origin v$(VERSION)
 	@echo "📗 Tagged v$(VERSION)"
