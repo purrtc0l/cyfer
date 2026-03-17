@@ -40,13 +40,13 @@ cat $ELF | cyfer bytes2base64 | cyfer base642decimal | cyfer decimal2ascii
 
 Each primitive converter is **O(n)** over input size (looping chars/bytes). Two or three passes are still **O(n)**.
 
-Try to pass a binary file in `make test`, and you'll see how much time it cost.
+Try to pass a binary file in `make test`, and you'll see the time it takes.
 
 ---
 
 ## Test
 
-Use `OUT_ASCII` as "Golden Standard" to verify consistency across different data paths. Run round-trips for every converters over and over again. Proving f⁻¹(f(x)) = x for every format in toolkit.
+Use `OUT_ASCII` as "Golden Standard" to verify consistency across different data paths. Run round-trips for every converter over and over again to prove f⁻¹(f(x)) = x for every format in toolkit.
 
 - **f(x)**: The **encoder** (`bytes2hex`). It takes raw data x and changes it into a new format.
 - **f−1**: The **decoder** (`hex2bytes`). It's the inverse function that does the exact opposite of the first one.
@@ -58,7 +58,7 @@ So the output ASCII stays the same no matter how many times we flip it back and 
 
 ## Error Handling
 
-Mode having `.prpt = NULL` in `cmds[]` array, meaning it **doesn't support interactive mode**, would have error handling to block interactive mode and prompt for user.
+A mode with `.prpt = NULL` in the `cmds[]` array, meaning it **doesn't support interactive mode**, would have error handling to block interactive mode and prompt for user.
 
 Including: representations convert with raw bytes `bytes2...` `...2bytes`.
 
@@ -90,11 +90,11 @@ Input String
 
 ### is_bits()
 
-Not strictly enforces full bytes only (which is - length must be 8, 16, 24, etc.), but assumes input as tokenizable str.
+Does not strictly enforce full bytes only (which is - length must be 8, 16, 24, etc.), but assumes input as tokenizable str.
 
 It tokenizes the input first, then check if every token is: 0 < token_len <= 8 with all digit as 0 or 1.
 
-There are other input would be assuming tokenizable - hex, decimal.
+Other inputs are also assumed to be tokenizable, such as hex and decimal.
 
 ### Order Matters
 
